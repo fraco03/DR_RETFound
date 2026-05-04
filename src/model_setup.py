@@ -50,7 +50,7 @@ def RETFound_mae(**kwargs):
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
-def build_retfound_regression(weights_path, device):
+def build_retfound_regression(weights_path, device, *, trusted_checkpoint=True):
     """
     Builds the model, sets up the 1-neuron regression head, 
     and loads the pre-trained MAE weights safely.
@@ -59,7 +59,11 @@ def build_retfound_regression(weights_path, device):
     model = RETFound_mae(num_classes=1, global_pool=True)
     
     # 2. Load the downloaded checkpoint
-    checkpoint = torch.load(weights_path, map_location='cpu')
+    # PyTorch 2.6 defaults to weights_only=True; disable it for trusted checkpoints.
+    if trusted_checkpoint:
+        checkpoint = torch.load(weights_path, map_location='cpu', weights_only=False)
+    else:
+        checkpoint = torch.load(weights_path, map_location='cpu')
     
     # Handle different checkpoint formats
     checkpoint_model = checkpoint['model'] if 'model' in checkpoint else checkpoint
