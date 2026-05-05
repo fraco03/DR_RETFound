@@ -26,7 +26,7 @@ def circular_crop(image):
 def get_transforms(is_train=True, normalize=True, to_tensor=True):
     base_transforms = [
         A.Resize(224, 224),
-        A.CLAHE(clip_limit=2.0, p=1.0), # p=1.0 lo rende deterministico per tutti
+        #A.CLAHE(clip_limit=2.0, p=1.0), # p=1.0 lo rende deterministico per tutti
     ]
     
     transforms = base_transforms.copy()
@@ -37,7 +37,15 @@ def get_transforms(is_train=True, normalize=True, to_tensor=True):
             A.HorizontalFlip(p=0.5),
             A.VerticalFlip(p=0.5),
             A.RandomRotate90(p=0.5),
-            A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, rotate_limit=15, p=0.5),
+            A.ShiftScaleRotate(
+                shift_limit=0.05, 
+                scale_limit=0.05, 
+                rotate_limit=15, 
+                p=0.5,
+                # Explicitly fill empty space with black pixels
+                border_mode=cv2.BORDER_CONSTANT, 
+                value=(0, 0, 0)
+            ),
             A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
         ])
 
