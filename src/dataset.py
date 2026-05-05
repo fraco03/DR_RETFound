@@ -1,4 +1,5 @@
 import os
+import argparse
 import cv2
 import numpy as np
 import pandas as pd
@@ -7,6 +8,7 @@ from torch.utils.data import Dataset, ConcatDataset, DataLoader
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
 
 def circular_crop(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -22,18 +24,24 @@ def circular_crop(image):
     return image[y_min:y_max+1, x_min:x_max+1]
 
 def get_transforms(is_train=True, normalize=True, to_tensor=True):
-    transforms = []
+    base_transforms = [
+        A.Resize(224, 224),
+        A.CLAHE(clip_limit=2.0, p=1.0), # p=1.0 lo rende deterministico per tutti
+    ]
+    
+    transforms = base_transforms.copy()
+
     if is_train:
+        # Passaggi solo per il Training (Augmentation)
         transforms.extend([
-            A.Resize(224, 224),
             A.HorizontalFlip(p=0.5),
             A.VerticalFlip(p=0.5),
             A.RandomRotate90(p=0.5),
+            A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, rotate_limit=15, p=0.5),
             A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
         ])
-    else:
-        transforms.append(A.Resize(224, 224))
 
+    # Normalizzazione finale (sempre presente)
     if normalize:
         transforms.append(
             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
@@ -90,3 +98,38 @@ class RetinopathyDataset(Dataset):
             image = augmented['image']
 
         return image, torch.tensor(label, dtype=torch.float32)
+
+
+def _load_image_rgb(image_path):
+    image = cv2.imread(image_path)
+    if image is None:
+        raise FileNotFoundError(
+            f"Could not read image file: {image_path}. Check filename and path."
+        )
+    return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+
+def main():
+
+    image = _load_image_rgb("C:\\Users\\frab0\\Downloads\\20051020_43808_0100_PP.png")
+    image = circular_crop(image)
+
+    transform = get_transforms(
+        is_train=True,
+        normalize=False,
+        to_tensor=True,
+    )
+    augmented = transform(image=image)
+    processed = augmented["image"]
+
+    processed = processed.permute(1, 2, 0).cpu().numpy()
+
+    plt.figure(figsize=(6, 6))
+    plt.imshow(processed)
+    plt.axis("off")
+    plt.tight_layout()
+    plt.show()
+
+
+if __name__ == "__main__":
+    main()
