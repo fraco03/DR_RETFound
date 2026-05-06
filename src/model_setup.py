@@ -26,7 +26,7 @@ def build_retfound_regression(weights_path, device, *, trusted_checkpoint=True):
     and loads the pre-trained MAE weights safely.
     """
     # 1. Initialize for regression (1 continuous output)
-    model = RETFound_mae(num_classes=1, global_pool="avg")
+    model = RETFound_mae(num_classes=1, global_pool="avg", img_size=384)
     
     # 2. Load the downloaded checkpoint
     # PyTorch 2.6 defaults to weights_only=True; disable it for trusted checkpoints.

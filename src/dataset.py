@@ -25,7 +25,7 @@ def circular_crop(image):
 
 def get_transforms(is_train=True, normalize=True, to_tensor=True):
     base_transforms = [
-        A.Resize(224, 224),
+        A.Resize(384, 384),
         #A.CLAHE(clip_limit=2.0, p=1.0), # p=1.0 lo rende deterministico per tutti
     ]
     
