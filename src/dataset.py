@@ -44,7 +44,7 @@ def get_transforms(is_train=True, normalize=True, to_tensor=True):
                 p=0.5,
                 # Explicitly fill empty space with black pixels
                 border_mode=cv2.BORDER_CONSTANT, 
-                value=(0, 0, 0)
+                fill=(0, 0, 0)
             ),
             A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
         ])
