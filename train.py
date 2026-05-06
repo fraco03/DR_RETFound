@@ -6,8 +6,8 @@ from torch.utils.data import ConcatDataset, DataLoader, WeightedRandomSampler
 
 from src.dataset import RetinopathyDataset, get_transforms
 import numpy as np
-from src.loss import SmoothL1Loss
-from src.model_setup import build_retfound_regression
+from src.loss import CoralLoss, label_to_levels
+from src.model_setup import build_retfound_coral
 
 def build_config():
     return {
@@ -24,7 +24,7 @@ def build_config():
         "epochs": 10,
         "lr": 1e-4,
         "weight_decay": 1e-4,
-        "loss_beta": 1.0,
+        "num_classes": 5,
         "sampler": "weighted",
     }
 
@@ -133,7 +133,7 @@ def build_checkpoint_name(cfg, epoch_idx, val_loss):
         f"lr{cfg['lr']}",
         f"wd{cfg['weight_decay']}",
         f"ep{cfg['epochs']}",
-        f"beta{cfg['loss_beta']}",
+        f"classes{cfg['num_classes']}",
         f"sampler{cfg['sampler']}",
         f"seed{cfg['random_state']}",
         f"epoch{epoch_idx}",
@@ -160,28 +160,32 @@ def save_checkpoint(cfg, model, optimizer, epoch_idx, val_loss):
     return ckpt_path
 
 
-def train_one_epoch(model, loader, optimizer, loss_fn, device):
+def train_one_epoch(model, loader, optimizer, loss_fn, device, num_classes):
     model.train()
     total_loss = 0.0
     for images, labels in loader:
-        images, labels = images.to(device), labels.float().to(device)
+        images = images.to(device)
+        labels = labels.to(device)
         optimizer.zero_grad(set_to_none=True)
-        outputs = model(images).squeeze()
-        batch_loss = loss_fn(outputs, labels)
+        outputs = model(images)
+        levels = label_to_levels(labels, num_classes=num_classes)
+        batch_loss = loss_fn(outputs, levels)
         batch_loss.backward()
         optimizer.step()
         total_loss += batch_loss.item()
     return total_loss / max(1, len(loader))
 
 
-def eval_one_epoch(model, loader, loss_fn, device):
+def eval_one_epoch(model, loader, loss_fn, device, num_classes):
     model.eval()
     total_loss = 0.0
     with torch.no_grad():
         for images, labels in loader:
-            images, labels = images.to(device), labels.float().to(device)
-            outputs = model(images).squeeze()
-            batch_loss = loss_fn(outputs, labels)
+            images = images.to(device)
+            labels = labels.to(device)
+            outputs = model(images)
+            levels = label_to_levels(labels, num_classes=num_classes)
+            batch_loss = loss_fn(outputs, levels)
             total_loss += batch_loss.item()
     return total_loss / max(1, len(loader))
 
@@ -192,8 +196,12 @@ def main():
     train_loader, val_loader = build_loaders(cfg, train_dataset, val_dataset)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = build_retfound_regression(cfg["weights_path"], device=device)
-    loss_fn = SmoothL1Loss(beta=cfg["loss_beta"])
+    model = build_retfound_coral(
+        cfg["weights_path"],
+        device=device,
+        num_classes=cfg["num_classes"],
+    )
+    loss_fn = CoralLoss()
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=cfg["lr"],
@@ -201,8 +209,12 @@ def main():
     )
 
     for epoch_idx in range(1, cfg["epochs"] + 1):
-        train_loss = train_one_epoch(model, train_loader, optimizer, loss_fn, device)
-        val_loss = eval_one_epoch(model, val_loader, loss_fn, device)
+        train_loss = train_one_epoch(
+            model, train_loader, optimizer, loss_fn, device, cfg["num_classes"]
+        )
+        val_loss = eval_one_epoch(
+            model, val_loader, loss_fn, device, cfg["num_classes"]
+        )
 
         print(
             f"Epoch {epoch_idx}/{cfg['epochs']}, "

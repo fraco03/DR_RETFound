@@ -50,3 +50,30 @@ def build_retfound_regression(weights_path, device, *, trusted_checkpoint=True):
     model.to(device)
     
     return model
+
+
+def build_retfound_coral(weights_path, device, num_classes, *, trusted_checkpoint=True):
+    """
+    Builds the model for CORAL with K-1 logits (K = num_classes).
+    """
+    if num_classes < 2:
+        raise ValueError("num_classes must be >= 2")
+
+    model = RETFound_mae(num_classes=num_classes - 1, global_pool="avg")
+
+    if trusted_checkpoint:
+        checkpoint = torch.load(weights_path, map_location='cpu', weights_only=False)
+    else:
+        checkpoint = torch.load(weights_path, map_location='cpu')
+
+    checkpoint_model = checkpoint['model'] if 'model' in checkpoint else checkpoint
+
+    state_dict = model.state_dict()
+    for key in ['head.weight', 'head.bias']:
+        if key in checkpoint_model and checkpoint_model[key].shape != state_dict[key].shape:
+            del checkpoint_model[key]
+
+    model.load_state_dict(checkpoint_model, strict=False)
+    model.to(device)
+
+    return model
