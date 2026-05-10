@@ -23,12 +23,14 @@ def circular_crop(image):
     
     return image[y_min:y_max+1, x_min:x_max+1]
 
-def get_transforms(is_train=True, normalize=True, to_tensor=True):
+def get_transforms(is_train=True, normalize=True, to_tensor=True, clahe=False):
     base_transforms = [
         A.Resize(224, 224),
-        #A.CLAHE(clip_limit=2.0, p=1.0, tile_grid_size=(8, 8)), # p=1.0 lo rende deterministico per tutti
     ]
     
+    if clahe:
+        base_transforms.insert(1, A.CLAHE(clip_limit=2.0, p=1.0, tile_grid_size=(8, 8)))
+   
     transforms = base_transforms.copy()
 
     if is_train:
