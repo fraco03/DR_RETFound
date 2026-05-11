@@ -125,7 +125,7 @@ def main():
     image = circular_crop(image)
 
     transform = get_transforms(
-        is_train=True,
+        is_train=False,
         normalize=False,
         to_tensor=True,
     )
