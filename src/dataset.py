@@ -95,7 +95,7 @@ class RetinopathyDataset(Dataset):
         if not img_name.lower().endswith(('.png', '.jpg', '.jpeg')):
             img_name += '.png'  # Default to .png if no extension
         img_path = os.path.join(self.img_dir, img_name)
-        image = safe_load_image_rgb(img_path, corrupted_dir=os.path.join(self.img_dir, 'corrupted'))
+        image = safe_load_image_rgb(img_path)
 
         # If image is corrupted (loader returned None), try other samples up to max_retries
         max_retries = 5
@@ -140,14 +140,12 @@ def _load_image_rgb(image_path):
     return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 
-def safe_load_image_rgb(image_path, corrupted_dir='corrupted', placeholder_size=(512, 512)):
+def safe_load_image_rgb(image_path):
     """Try to load an RGB image robustly.
     - If load succeeds returns an HxWx3 uint8 RGB numpy array.
-    - If load fails, copies the bad file to `corrupted_dir` (keeps original name)
-      and returns a black placeholder image so training can continue.
+    - If load fails, returns None so caller can skip.
     """
     ImageFile.LOAD_TRUNCATED_IMAGES = True
-    os.makedirs(corrupted_dir, exist_ok=True)
 
     try:
         with open(image_path, 'rb') as f:
@@ -162,7 +160,6 @@ def safe_load_image_rgb(image_path, corrupted_dir='corrupted', placeholder_size=
 
         return arr
     except Exception:
-        # Do NOT copy corrupted files by default; simply return None so callers can skip.
         print(f"[dataset] Corrupted image detected and skipped: {image_path}")
         return None
 
