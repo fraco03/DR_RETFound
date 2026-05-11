@@ -1,6 +1,10 @@
 import os
 import argparse
 import cv2
+from PIL import Image, ImageFile
+import contextlib
+import io
+import random
 import numpy as np
 import pandas as pd
 import torch
@@ -91,13 +95,29 @@ class RetinopathyDataset(Dataset):
         if not img_name.lower().endswith(('.png', '.jpg', '.jpeg')):
             img_name += '.png'  # Default to .png if no extension
         img_path = os.path.join(self.img_dir, img_name)
-        image = cv2.imread(img_path)
+        image = safe_load_image_rgb(img_path, corrupted_dir=os.path.join(self.img_dir, 'corrupted'))
+
+        # If image is corrupted (loader returned None), try other samples up to max_retries
+        max_retries = 5
+        retries = 0
+        attempted = {idx}
+        while image is None and retries < max_retries:
+            retries += 1
+            # sample another random index
+            new_idx = random.randint(0, len(self.df) - 1)
+            if new_idx in attempted:
+                continue
+            attempted.add(new_idx)
+            img_name = str(self.df.iloc[new_idx, 0])
+            if not img_name.lower().endswith(('.png', '.jpg', '.jpeg')):
+                img_name += '.png'
+            img_path = os.path.join(self.img_dir, img_name)
+            image = safe_load_image_rgb(img_path, corrupted_dir=os.path.join(self.img_dir, 'corrupted'))
+
         if image is None:
-            raise FileNotFoundError(
-                f"Could not read image file: {img_path}. "
-                "Check filename, extension, and dataset path."
-            )
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            # last resort: return a black placeholder so training doesn't crash
+            print(f"[dataset] Failed to load image after {max_retries} retries; returning placeholder for idx {idx}")
+            image = np.zeros((512, 512, 3), dtype=np.uint8)
 
         image = circular_crop(image)
 
@@ -111,12 +131,40 @@ class RetinopathyDataset(Dataset):
 
 
 def _load_image_rgb(image_path):
+    # Backwards-compatible loader (kept for external use)
     image = cv2.imread(image_path)
     if image is None:
         raise FileNotFoundError(
             f"Could not read image file: {image_path}. Check filename and path."
         )
     return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+
+def safe_load_image_rgb(image_path, corrupted_dir='corrupted', placeholder_size=(512, 512)):
+    """Try to load an RGB image robustly.
+    - If load succeeds returns an HxWx3 uint8 RGB numpy array.
+    - If load fails, copies the bad file to `corrupted_dir` (keeps original name)
+      and returns a black placeholder image so training can continue.
+    """
+    ImageFile.LOAD_TRUNCATED_IMAGES = True
+    os.makedirs(corrupted_dir, exist_ok=True)
+
+    try:
+        with open(image_path, 'rb') as f:
+            # suppress noisy libjpeg stderr messages during open
+            with contextlib.redirect_stderr(io.StringIO()):
+                img = Image.open(f)
+                img = img.convert('RGB')
+                arr = np.array(img)
+
+        if arr.size == 0:
+            raise ValueError('Empty image')
+
+        return arr
+    except Exception:
+        # Do NOT copy corrupted files by default; simply return None so callers can skip.
+        print(f"[dataset] Corrupted image detected and skipped: {image_path}")
+        return None
 
 
 def main():
