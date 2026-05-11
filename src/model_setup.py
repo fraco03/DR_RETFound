@@ -1,7 +1,7 @@
-from functools import partial
-import timm.models.vision_transformer
 import torch
 import torch.nn as nn
+from functools import partial
+import timm
 
 class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
     """
@@ -16,17 +16,29 @@ def RETFound_mae(**kwargs):
     Initializes the ViT-Large architecture used by RETFound.
     """
     model = VisionTransformer(
-        patch_size=16, embed_dim=1024, depth=24, num_heads=16, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+        patch_size=16, 
+        embed_dim=1024, 
+        depth=24, 
+        num_heads=16, 
+        mlp_ratio=4, 
+        qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), 
+        **kwargs
+    )
     return model
 
-def build_retfound_regression(weights_path, device, *, trusted_checkpoint=True):
+def build_retfound_regression(weights_path, device, drop_path_rate=0.1, *, trusted_checkpoint=True):
     """
     Builds the model, sets up the 1-neuron regression head, 
     and loads the pre-trained MAE weights safely.
     """
     # 1. Initialize for regression (1 continuous output)
-    model = RETFound_mae(num_classes=1, global_pool="avg")
+    # INIETTIAMO IL DROPOUT QUI:
+    model = RETFound_mae(
+        num_classes=1, 
+        global_pool="avg",
+        drop_path_rate=drop_path_rate # La Stochastic Depth per i ViT
+    )
     
     # 2. Load the downloaded checkpoint
     # PyTorch 2.6 defaults to weights_only=True; disable it for trusted checkpoints.
