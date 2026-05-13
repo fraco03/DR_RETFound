@@ -91,15 +91,15 @@ def medical_objective(thresholds, y_true, y_pred, fp_weight=1.0, fn_weight=10.0)
 # y_true = all_val_labels
 # y_pred = all_val_predictions 
 
-initial_thresholds = [0.5, 1.5, 2.5, 3.5]
+# initial_thresholds = [0.5, 1.5, 2.5, 3.5]
 
 # Esegui l'ottimizzazione per la KAPPA
-res_kappa = minimize(kappa_objective, initial_thresholds, args=(y_true, y_pred), method='Nelder-Mead')
-t_kappa = res_kappa.x
+# res_kappa = minimize(kappa_objective, initial_thresholds, args=(y_true, y_pred), method='Nelder-Mead')
+# t_kappa = res_kappa.x
 
 # Esegui l'ottimizzazione MEDICA (Prudente)
-res_med = minimize(medical_objective, initial_thresholds, args=(y_true, y_pred, 1.0, 15.0), method='Nelder-Mead')
-t_med = res_med.x
+# res_med = minimize(medical_objective, initial_thresholds, args=(y_true, y_pred, 1.0, 15.0), method='Nelder-Mead')
+# t_med = res_med.x
 
-print(f"Soglie Kappa: {t_kappa}")
-print(f"Soglie Mediche (Prudenti): {t_med}")
+# print(f"Soglie Kappa: {t_kappa}")
+# print(f"Soglie Mediche (Prudenti): {t_med}")
