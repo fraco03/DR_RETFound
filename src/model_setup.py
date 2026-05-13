@@ -47,6 +47,6 @@ def build_retfound_regression(weights_path, device, *, trusted_checkpoint=True):
             
     # 4. Load remaining weights and move to device
     model.load_state_dict(checkpoint_model, strict=False)
-    model.to(device)
-    
+    model = model.to(device)
+
     return model
