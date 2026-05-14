@@ -112,7 +112,7 @@ class RetinopathyDataset(Dataset):
             if not img_name.lower().endswith(('.png', '.jpg', '.jpeg')):
                 img_name += '.png'
             img_path = os.path.join(self.img_dir, img_name)
-            image = safe_load_image_rgb(img_path, corrupted_dir=os.path.join(self.img_dir, 'corrupted'))
+            image = safe_load_image_rgb(img_path)
             if image is not None:
                 label_idx = new_idx
 
