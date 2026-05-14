@@ -14,6 +14,15 @@ from albumentations.pytorch import ToTensorV2
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 
+
+# Try with this but add before the transforms in the dataset class
+def apply_ben_graham(image, sigma=10, **kwargs):
+    # La logica originale di Ben Graham
+    image_gaussian = cv2.GaussianBlur(image, (0, 0), sigma)
+    # Calcolo: 4 * originale - 4 * gaussian + 128 (offset grigio)
+    image = cv2.addWeighted(image, 4, image_gaussian, -4, 128)
+    return image
+
 def circular_crop(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     mask = gray > 7
@@ -28,8 +37,10 @@ def circular_crop(image):
     return image[y_min:y_max+1, x_min:x_max+1]
 
 def get_transforms(is_train=True, normalize=True, to_tensor=True, clahe=False):
+    ben_graham_transform = A.Lambda(name="BenGraham", image=apply_ben_graham, p=1.0)
     base_transforms = [
         A.Resize(224, 224),
+        ben_graham_transform,
     ]
     
     if clahe:
@@ -52,7 +63,6 @@ def get_transforms(is_train=True, normalize=True, to_tensor=True, clahe=False):
                 border_mode=cv2.BORDER_CONSTANT, 
                 fill=(0, 0, 0)
             ),
-            A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
         ])
 
     # Normalizzazione finale (sempre presente)
@@ -65,26 +75,15 @@ def get_transforms(is_train=True, normalize=True, to_tensor=True, clahe=False):
 
     return A.Compose(transforms)
     
-# Try with this but add before the transforms in the dataset class
-def standardize_fundus_colors(image, sigmaX=10):
-    """
-    Applies Ben Graham's preprocessing to standardize lighting and color 
-    across different fundus cameras.
-    Input must be an RGB image.
-    """
-    # Apply Gaussian blur to estimate the background illumination
-    blurred = cv2.GaussianBlur(image, (0, 0), sigmaX)
-    
-    # Subtract the background and add a neutral gray (128) 
-    # Formula: alpha * image + beta * blurred + gamma
-    standardized = cv2.addWeighted(image, 4, blurred, -4, 128)
-    
-    return standardized
 
 class RetinopathyDataset(Dataset):
     def __init__(self, df, img_dir, transform=None):
         self.df = df.reset_index(drop=True)
-        self.img_dir = img_dir
+        if not isinstance(img_dir, (str, os.PathLike)):
+            raise TypeError(
+                f"img_dir must be a path-like string, got {type(img_dir).__name__}: {img_dir}"
+            )
+        self.img_dir = os.fspath(img_dir)
         self.transform = transform
 
     def __len__(self):
