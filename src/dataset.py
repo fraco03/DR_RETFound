@@ -96,6 +96,7 @@ class RetinopathyDataset(Dataset):
             img_name += '.png'  # Default to .png if no extension
         img_path = os.path.join(self.img_dir, img_name)
         image = safe_load_image_rgb(img_path)
+        label_idx = idx
 
         # If image is corrupted (loader returned None), try other samples up to max_retries
         max_retries = 5
@@ -113,6 +114,8 @@ class RetinopathyDataset(Dataset):
                 img_name += '.png'
             img_path = os.path.join(self.img_dir, img_name)
             image = safe_load_image_rgb(img_path, corrupted_dir=os.path.join(self.img_dir, 'corrupted'))
+            if image is not None:
+                label_idx = new_idx
 
         if image is None:
             # last resort: return a black placeholder so training doesn't crash
@@ -121,7 +124,7 @@ class RetinopathyDataset(Dataset):
 
         image = circular_crop(image)
 
-        label = float(self.df.iloc[idx, 1])
+        label = float(self.df.iloc[label_idx, 1])
 
         if self.transform:
             augmented = self.transform(image=image)
