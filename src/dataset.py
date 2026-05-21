@@ -36,12 +36,14 @@ def circular_crop(image):
     
     return image[y_min:y_max+1, x_min:x_max+1]
 
-def get_transforms(is_train=True, normalize=True, to_tensor=True, clahe=False):
+def get_transforms(is_train=True, normalize=True, to_tensor=True, clahe=False, ben_graham=True):
     ben_graham_transform = A.Lambda(name="BenGraham", image=apply_ben_graham, p=1.0)
     base_transforms = [
         A.Resize(224, 224),
-        ben_graham_transform,
     ]
+    
+    if ben_graham:
+        base_transforms.append(ben_graham_transform)
     
     if clahe:
         base_transforms.insert(1, A.CLAHE(clip_limit=2.0, p=1.0, tile_grid_size=(8, 8)))
@@ -64,6 +66,9 @@ def get_transforms(is_train=True, normalize=True, to_tensor=True, clahe=False):
                 fill=(0, 0, 0)
             ),
         ])
+        
+        if not ben_graham:
+            transforms.append(A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5))
 
     # Normalizzazione finale (sempre presente)
     if normalize:
