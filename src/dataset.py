@@ -173,11 +173,11 @@ def safe_load_image_rgb(image_path):
 
 def main():
 
-    image = _load_image_rgb("C:\\Users\\frab0\\Downloads\\20051020_43808_0100_PP.png")
+    image = _load_image_rgb(r"C:\Users\frab0\Downloads\IDRiD_002.jpg")
     image = circular_crop(image)
 
     transform = get_transforms(
-        is_train=True,
+        is_train=False,
         normalize=False,
         to_tensor=True,
     )
